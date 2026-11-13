@@ -1,0 +1,48 @@
+---
+title: "PCA with Visualization"
+format:
+  html:
+    embed-resources: true
+    code-overflow: wrap
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+```{r}
+library(tidyverse)
+library(ggrepel)
+library(ggsci)
+```
+
+```{r}
+#| fig-height: 8
+#| fig-width: 8
+us <- read_csv("headline_all_cats.csv") |>
+        filter(country == "United States") |>
+        select(-1, -country, -`All Items`) |>
+        rename_with(~ str_extract(.x, "\\w+"), -date) |>
+        drop_na()
+
+pca <- prcomp(select(us, -date), scale. = TRUE)
+pct <- round(100 * pca$sdev^2 / sum(pca$sdev^2))
+
+scores <- as_tibble(pca$x[, 1:2]) |>
+  mutate(year = factor(year(us$date)),
+         month = month(us$date, label = TRUE))
+
+mult <- 0.8 * max(abs(pca$x[, 1:2])) / max(abs(pca$rotation[, 1:2]))
+arrows <- as_tibble(pca$rotation[, 1:2] * mult, rownames = "var")
+
+ggplot(scores, aes(PC1, PC2)) +
+  geom_segment(data = arrows, aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.2, "cm")), color = "grey60") +
+  geom_text_repel(data = arrows, aes(label = var), color = "grey30", size = 3) +
+  geom_point(aes(color = year)) +
+  geom_text_repel(aes(label = month, color = year), size = 2.5,
+                  max.overlaps = 15, show.legend = FALSE) +
+  scale_color_flatui() +
+  labs(x = paste0("PC1 (", pct[1], "%)"), y = paste0("PC2 (", pct[2], "%)"),
+       color = "Year") +
+  theme_minimal()
+```
